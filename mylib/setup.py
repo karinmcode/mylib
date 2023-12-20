@@ -9,11 +9,11 @@ Created on Wed Dec  6 11:45:01 2023
 from setuptools import setup, find_packages
 
 setup(
-    name='sheets2CV',  # Replace with your package's name
+    name='mylib',  # Replace with your package's name
     version='231206',  # The initial release version
     author='Karin Morandell',  # Your name or your organization’s name
     author_email='karinmorandell.pro@gmail.com',  # Your email
-    description='Generate CV from Google sheets',  # Short description
+    description='My Python code',  # Short description
     long_description=open('README.md').read(),  # Long description read from the readme file
     long_description_content_type='text/markdown',  # Long description content type
     packages=find_packages(exclude=['tests*']),  # List of all python modules to be installed
