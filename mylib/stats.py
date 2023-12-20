@@ -166,29 +166,30 @@ def perform_comparative_statistics(data, group_column, variable_column,xticks = 
                 # Perform Dunn's test (non-parametric)
                 posthoc_result = sp.posthoc_dunn(data_sorted, val_col=variable_column, group_col=group_column)
             
-            # print results for paper
-            posthoc_result_corrected = posthoc_result*n_combinations
-            posthoc_result_corrected = np.round(posthoc_result_corrected,4)
-            
-            # Get the shape of the array
-            n_rows, n_cols = posthoc_result_corrected.shape
-            
-            # Create a Boolean mask for the upper triangle (including the diagonal)
-            upper_triangle = np.triu(np.ones((n_rows, n_cols), dtype=bool), k=0)
 
-            posthoc_result_formatted = posthoc_result_corrected
-            posthoc_result_formatted[upper_triangle] = np.nan
-            posthoc_result_formatted[posthoc_result_corrected > alpha] = 'ns'
-            
-            posthoc_result_formatted = posthoc_result_formatted.fillna(' ')
-            
-            # Convert the array to a DataFrame
-            posthoc_result_df = pd.DataFrame(posthoc_result_formatted, columns=[f"Group {i}" for i in range(n_cols)], index=[f"Group {i}" for i in range(n_rows)])
-            
-            # Replace NaN with 'ns' (non-significant)
-            posthoc_result_df = posthoc_result_df.fillna('ns')
+            if verbose:
+                # print results for paper
+                posthoc_result_corrected = posthoc_result*n_combinations
+                posthoc_result_corrected = np.round(posthoc_result_corrected,4)
+                
+                # Get the shape of the array
+                n_rows, n_cols = posthoc_result_corrected.shape
+                
+                # Create a Boolean mask for the upper triangle (including the diagonal)
+                upper_triangle = np.triu(np.ones((n_rows, n_cols), dtype=bool), k=0)
 
-            print(posthoc_result_df)
+                posthoc_result_formatted = posthoc_result_corrected
+                posthoc_result_formatted[upper_triangle] = np.nan
+                posthoc_result_formatted[posthoc_result_corrected > alpha] = 'ns'
+                
+                posthoc_result_formatted = posthoc_result_formatted.fillna(' ')
+                
+                # Convert the array to a DataFrame
+                posthoc_result_df = pd.DataFrame(posthoc_result_formatted, columns=[f"Group {i}" for i in range(n_cols)], index=[f"Group {i}" for i in range(n_rows)])
+                
+                # Replace NaN with 'ns' (non-significant)
+                posthoc_result_df = posthoc_result_df.fillna('ns')
+                print(posthoc_result_df)
             
             for c in combinations:
                 group1 = c[0]
