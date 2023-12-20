@@ -57,7 +57,7 @@ def calculate_descriptive_statistics(df, column_name):
 
 
 def perform_comparative_statistics(data, group_column, variable_column,xticks = None, group_order=None,alpha=0.05,verbose=False):
-    # debugging data=DF
+    # debugging data=labeled_data
     #group_column = 'cluster_label'
     # variable_column = 'Temperature'
     
@@ -181,8 +181,14 @@ def perform_comparative_statistics(data, group_column, variable_column,xticks = 
             posthoc_result_formatted[posthoc_result_corrected > alpha] = 'ns'
             
             posthoc_result_formatted = posthoc_result_formatted.fillna(' ')
+            
+            # Convert the array to a DataFrame
+            posthoc_result_df = pd.DataFrame(posthoc_result_formatted, columns=[f"Group {i}" for i in range(n_cols)], index=[f"Group {i}" for i in range(n_rows)])
+            
+            # Replace NaN with 'ns' (non-significant)
+            posthoc_result_df = posthoc_result_df.fillna('ns')
 
-            print(posthoc_result_formatted)
+            print(posthoc_result_df)
             
             for c in combinations:
                 group1 = c[0]
@@ -205,7 +211,7 @@ def perform_comparative_statistics(data, group_column, variable_column,xticks = 
     # Verbose output
     if verbose:
         # Print summary of the statistical tests used
-        print(f"Statistical Test Used: {test_used}")
+        print(f"\nStatistical Test Used: {test_used}")
         print(f"P-Value: {format_pval(p_value)}")
     
         # Calculate mean and standard error for each group
@@ -216,9 +222,12 @@ def perform_comparative_statistics(data, group_column, variable_column,xticks = 
             mean = summary_stats.loc[group, 'mean']
             sem = summary_stats.loc[group, 'sem']
             print(f"Group {group}: {mean:.3f} ± {sem:.3f}")
-            paper_string = paper_string+f"{group}: {mean:.2f} ± {sem:.2f}, "
+            if isinstance(group,int):
+                paper_string = paper_string+f"Group {group}: {mean:.2f} ± {sem:.2f}, "
+            else:
+                paper_string = paper_string+f"{group}: {mean:.2f} ± {sem:.2f}, "
         
-        print(paper_string)
+        print(f"\n{paper_string}")
     
     
     return test_used, p_value ,significant_combinations_df
