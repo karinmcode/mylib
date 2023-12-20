@@ -26,10 +26,8 @@ setup(
         'pandas',  # For data manipulation and analysis
          'numpy',  # for numerical operations
          'importlib',
-         're', 
          'os', 
          'subprocess',
-         'reportlab>=3.0',  # For PDF generation and handling
          'Pillow>=8.0',  # Python Imaging Library (PIL) Fork for image processing
          ]
 )
