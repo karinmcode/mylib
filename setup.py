@@ -26,7 +26,6 @@ setup(
         'pandas',  # For data manipulation and analysis
          'numpy',  # for numerical operations
          'importlib',
-         'subprocess',
          'Pillow>=8.0',  # Python Imaging Library (PIL) Fork for image processing
          ]
 )
