@@ -58,9 +58,29 @@ def calculate_descriptive_statistics(df, column_name):
 
 def perform_comparative_statistics(data, group_column, variable_column,xticks = None, group_order=None,alpha=0.05,verbose=False):
     # debugging data=DF
-    #group_column = 'Resp_Quartile'
+    #group_column = 'cluster_label'
+    # variable_column = 'Temperature'
     
     if not group_order: 
+        
+        ## If group_column contains nans make an additional group to avoid errors later
+        
+        # Check if all groupIDs are integers
+        all_integers = data[group_column].dropna().apply(lambda x: isinstance(x, int)).all()
+        
+        # If nan values in group column
+        if data[group_column].isnull().any():
+            if all_integers:
+                # Find the max integer and increment by 1
+                max_group_id = data[group_column].max()
+                nan_group_id = max_group_id + 1
+            else:
+                # Use a string identifier for the NaN group
+                nan_group_id = 'NaN_Group'
+            
+            # Fill NaNs with the new group ID
+            data[group_column].fillna(nan_group_id, inplace=True)
+        
         groups = np.unique(data[group_column].values)
         groups = np.sort(groups)
     else:
