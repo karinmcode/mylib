@@ -57,9 +57,11 @@ def calculate_descriptive_statistics(df, column_name):
 
 
 def perform_comparative_statistics(data, group_column, variable_column,xticks = None, group_order=None,alpha=0.05,verbose=False):
-    # debugging data=labeled_data
-    #group_column = 'cluster_label'
+    # debugging 
+    # data=labeled_data
+    # group_column = 'cluster_label'
     # variable_column = 'Temperature'
+    # verbose=True
     
     if not group_order: 
         
@@ -99,10 +101,12 @@ def perform_comparative_statistics(data, group_column, variable_column,xticks = 
     else:
         L = np.array(xticks)  # Convert xticks to a NumPy array
             
-    
+    ## TEST NORMALITY
     parametric = True  # Default to parametric test, change based on normality test
+    
     # Check for statistical significance pair-wise comparison
     significant_combinations = []  # Initialize as an empty list
+    
     # Check normality for each group
     normality_test_results = []
 
@@ -111,17 +115,18 @@ def perform_comparative_statistics(data, group_column, variable_column,xticks = 
         stat, p = shapiro(group_data)
         normality_test_results.append((group, stat, p))
 
-    # Perform Levene's test for homoscedasticity
-    homoscedasticity_test_results = stats.levene(*grouped_data)
-    
     # If any group fails normality test, switch to non-parametric
     if any(p > alpha for (_, _, p) in normality_test_results):
         parametric = False
 
+    ## HOMOSCEDASTICITY TEST :  Perform Levene's test
+    homoscedasticity_test_results = stats.levene(*grouped_data)
+    
     # If any group fails homoscedasticity test, switch to non-parametric
-    if homoscedasticity_test_results.pvalue > alpha:
+    if (homoscedasticity_test_results.pvalue > alpha) & (ngroups > 2):
         parametric = False
     
+    ## TEST CHOICE
     if ngroups <= 2:
         if parametric:
             _, p_value = ttest_ind(data[data[group_column] == groups[0]][variable_column],
@@ -143,21 +148,24 @@ def perform_comparative_statistics(data, group_column, variable_column,xticks = 
             _, p_value = kruskal(*grouped_data)
             test_used = 'Kruskal-Wallis Test'
 
-        # add multiple comparison pvalue Bonnferonni correction
+        # Add multiple comparison pvalue Bonferonni correction
         if not xticks:
             L = np.arange(ngroups)
         else:
             L = np.array(xticks)  # Convert xticks to a NumPy array
+            
         combinations = [(L[x], L[x + y]) for y in reversed(range(1, len(L))) for x in range((len(L) - y))]
         combinations = sorted(combinations, key=lambda x: (x[0], x[1]))# important for plotting stars in an organized way
         
         n_combinations = len(combinations)
+        
+        ## SORT BY GROUP ORDER
         if not group_order:
             data_sorted =  data.sort_values(by=group_column) 
         else:
             data_sorted = data.set_index(group_column).loc[group_order].reset_index()
 
-
+        ## POSTHOC TESTS
         if p_value<=alpha:
             if parametric:
                 # Perform Tukey's HSD post-hoc test (parametric)
@@ -166,7 +174,7 @@ def perform_comparative_statistics(data, group_column, variable_column,xticks = 
                 # Perform Dunn's test (non-parametric)
                 posthoc_result = sp.posthoc_dunn(data_sorted, val_col=variable_column, group_col=group_column)
             
-
+            # Display posthoc test pairwise comparisons pvalues:
             if verbose:
                 # print results for paper
                 posthoc_result_corrected = posthoc_result*n_combinations
@@ -185,12 +193,13 @@ def perform_comparative_statistics(data, group_column, variable_column,xticks = 
                 posthoc_result_formatted = posthoc_result_formatted.fillna(' ')
                 
                 # Convert the array to a DataFrame
-                posthoc_result_df = pd.DataFrame(posthoc_result_formatted, columns=[f"Group {i}" for i in range(n_cols)], index=[f"Group {i}" for i in range(n_rows)])
+                posthoc_result_df = pd.DataFrame(posthoc_result_formatted, columns=[f"{i}" for i in range(n_cols)], index=[f"{i}" for i in range(n_rows)])
                 
                 # Replace NaN with 'ns' (non-significant)
                 posthoc_result_df = posthoc_result_df.fillna('ns')
                 print(posthoc_result_df)
             
+            # Store significant combinations
             for c in combinations:
                 group1 = c[0]
                 group2 = c[1]
@@ -222,16 +231,25 @@ def perform_comparative_statistics(data, group_column, variable_column,xticks = 
         for group in groups:
             mean = summary_stats.loc[group, 'mean']
             sem = summary_stats.loc[group, 'sem']
-            print(f"Group {group}: {mean:.3f} ± {sem:.3f}")
-            if isinstance(group,int):
-                paper_string = paper_string+f"Group {group}: {mean:.2f} ± {sem:.2f}, "
+            
+            
+            
+            if isinstance(group,float):
+                print(f"Group {int(group)}: {mean:.3f} ± {sem:.3f}")
+            else:
+                print(f"Group {group}: {mean:.3f} ± {sem:.3f}")
+            
+            # Store values across groups for manuscript
+            if isinstance(group,float):
+                paper_string = paper_string+f"Group {int(group)}: {mean:.2f} ± {sem:.2f}, "
             else:
                 paper_string = paper_string+f"{group}: {mean:.2f} ± {sem:.2f}, "
         
-        print(f"\n{paper_string}")
+        print(f"\nManuscript format:  ({test_used} test, {format_pval(p_value)}, {paper_string})")
     
     
     return test_used, p_value ,significant_combinations_df
+
 '''
 # Create a sample DataFrame
 data = pd.DataFrame({
