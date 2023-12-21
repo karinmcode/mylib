@@ -29,7 +29,6 @@ import os
 #import scipy.io
 
 #import h5py
-import subprocess# to open folder
 
 # Strings
 #import re
@@ -168,7 +167,6 @@ def create_combined_boxplots(DF, DF_restCells, quartile_variable = 'resp_rest'):
 
 # url = os.path.join(fo_figs,f'combined_boxplots_with_quartiles_tests_quartile_variable__{quartile_variable}.svg')
 # my_save_plot(fig, url)
-# subprocess.run(['open', fo_figs])
 
 
 
@@ -793,3 +791,4 @@ def get_yrange(ax):
     yrange = np.float64(yrange)
 
     return yrange,ymin,ymax
+
