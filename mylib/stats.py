@@ -57,8 +57,8 @@ def calculate_descriptive_statistics(df, column_name):
 
 
 def perform_comparative_statistics(data, group_column, variable_column,xticks = None, group_order=None,alpha=0.05,verbose=False):
-    # debugging 
-    # data=labeled_data
+    # DEBUGGING: 
+    # data=data_labeled
     # group_column = 'cluster_label'
     # variable_column = 'Temperature'
     # verbose=True
@@ -66,6 +66,11 @@ def perform_comparative_statistics(data, group_column, variable_column,xticks = 
     if not group_order: 
         
         ## If group_column contains nans make an additional group to avoid errors later
+        all_float = data[group_column].dropna().apply(lambda x: isinstance(x, float)).all()
+        all_round = data[group_column].dropna().apply(lambda x: x==np.round(x)).all()
+        if all_round & all_float:
+            data[group_column] = data[group_column].astype(int)
+            
         
         # Check if all groupIDs are integers
         all_integers = data[group_column].dropna().apply(lambda x: isinstance(x, int)).all()
@@ -83,12 +88,15 @@ def perform_comparative_statistics(data, group_column, variable_column,xticks = 
             # Fill NaNs with the new group ID
             data[group_column].fillna(nan_group_id, inplace=True)
         
+    
         groups = np.unique(data[group_column].values)
         groups = np.sort(groups)
     else:
         groups = group_order
+        
     ngroups = len(groups)
     
+    # GROUPED DATA FORMATTING:
     dataIsAlreadyGrouped = len(data)==ngroups# data is grouped in dataframe
     if dataIsAlreadyGrouped:
         data = data.explode(variable_column)
@@ -96,10 +104,6 @@ def perform_comparative_statistics(data, group_column, variable_column,xticks = 
 
     grouped_data = [data[data[group_column] == group][variable_column].values for group in groups]
 
-    if not xticks:
-        L = np.arange(ngroups)
-    else:
-        L = np.array(xticks)  # Convert xticks to a NumPy array
             
     ## TEST NORMALITY
     parametric = True  # Default to parametric test, change based on normality test
@@ -174,6 +178,7 @@ def perform_comparative_statistics(data, group_column, variable_column,xticks = 
                 # Perform Dunn's test (non-parametric)
                 posthoc_result = sp.posthoc_dunn(data_sorted, val_col=variable_column, group_col=group_column)
             
+            
             # Display posthoc test pairwise comparisons pvalues:
             if verbose:
                 # print results for paper
@@ -188,16 +193,17 @@ def perform_comparative_statistics(data, group_column, variable_column,xticks = 
 
                 posthoc_result_formatted = posthoc_result_corrected
                 posthoc_result_formatted[upper_triangle] = np.nan
+                posthoc_result_formatted = posthoc_result_formatted.fillna(' ')
                 posthoc_result_formatted[posthoc_result_corrected > alpha] = 'ns'
                 
-                posthoc_result_formatted = posthoc_result_formatted.fillna(' ')
+                # Update column and row names with groups
+                if all(isinstance(v, np.int64) for v in posthoc_result_formatted.columns.values):
+
+                    posthoc_result_formatted.columns = [f"grp {i}" for i in range(n_cols)]
+                    posthoc_result_formatted.index = [f"grp {i}" for i in range(n_rows)]
                 
-                # Convert the array to a DataFrame
-                posthoc_result_df = pd.DataFrame(posthoc_result_formatted, columns=[f"{i}" for i in range(n_cols)], index=[f"{i}" for i in range(n_rows)])
-                
-                # Replace NaN with 'ns' (non-significant)
-                posthoc_result_df = posthoc_result_df.fillna('ns')
-                print(posthoc_result_df)
+
+                print(posthoc_result_formatted)
             
             # Store significant combinations
             for c in combinations:
