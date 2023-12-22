@@ -894,7 +894,7 @@ def get_yrange(ax):
             y_position = position[1]  # Get the y-coordinate of the position
             ymin = min(ymin, y_position)
             ymax = max(ymax, y_position)
-        print(f"ymin({type(artist)})={ymin}")
+        #print(f"ymin({type(artist)})={ymin}")
 
 
     yrange = ymax - ymin
