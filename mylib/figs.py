@@ -344,7 +344,7 @@ def compute_and_display_stats_xGroups(ax=None, DATA=None, variable_name="",
         print('No variable name was provided. Should be a string.')
         return
 
-    if not grouping_columns:
+    if grouping_columns is None:
         print('No grouping columns names were provided.')
         return
     else:
@@ -423,8 +423,8 @@ def compute_and_display_stats_xGroups(ax=None, DATA=None, variable_name="",
                 xshift=0.1
                 
             for irow,row in significant_combinations.iterrows():
-                significant_combinations.loc[irow,'grp1']= row['grp1']+ xshift
-                significant_combinations.loc[irow,'grp2']= row['grp2']+ xshift
+                significant_combinations.loc[irow,'condition1']= row['condition1']+ xshift
+                significant_combinations.loc[irow,'condition2']= row['condition2']+ xshift
                 
             #print(f"significant_combinations = {significant_combinations}")
             mystats.add_stats_annot(ax,significant_combinations,yrange=yrange2)
@@ -460,6 +460,11 @@ def colormap(input):
     
     return cmap,cluster_colors
 
+def plot_stats_annot(ax,significant_combinations,yrange=None):
+    add_stats_annot(ax,significant_combinations,yrange=yrange)
+
+def plot_sig_annot(ax,significant_combinations,yrange=None):
+    add_stats_annot(ax,significant_combinations,yrange=yrange)
 
 def add_stats_annot(ax,significant_combinations,yrange=None):
 
@@ -492,8 +497,8 @@ def add_stats_annot(ax,significant_combinations,yrange=None):
 
         # Sample significant_combinations DataFrame
         significant_combinations = pd.DataFrame({
-            'grp1': ['A', 'B', 'A', 'C'],
-            'grp2': ['B', 'C', 'D', 'D'],
+            'condition1': ['A', 'B', 'A', 'C'],
+            'condition2': ['B', 'C', 'D', 'D'],
             'pval': [0.03, 0.001, 0.02, 0.1]
         })
 
@@ -508,241 +513,334 @@ def add_stats_annot(ax,significant_combinations,yrange=None):
         plt.show()
     """
     
+    ## CHECK INPUTS
     if significant_combinations.empty:
+        print('No significant comparison found.')
         return
 
     if significant_combinations.shape[0]==0:
+        print('No significant comparison found.')
         return
     
-    if not yrange:
+    # replace old version of significan_combinations
+    if all(item in significant_combinations.columns for item in ['grp1', 'grp2']):
+        significant_combinations=significant_combinations.rename({'grp1':'condition1','grp2':'condition2'})
+    
+    significant_combinations = add_xtick_values(ax,significant_combinations)
+    
+    if yrange is None:
         yrange,bottom,top = get_yrange(ax)
     else:
         bottom,top = plt.get_ylim(ax)
 
+    ## GET SIGNIFICANCE STARS
     # First make new column text
     for i, row in significant_combinations.iterrows():
         # Significance level
-        p = row['pval']
-        if p < 0.001:
-            sig_symbol = '***'
-        elif p < 0.01:
-            sig_symbol = '**'
-        elif p <= 0.05:
-            sig_symbol = '*'
-        else:
-            sig_symbol = 'ns'            
+        sig_stars = pval2stars(row['pval'])
+        significant_combinations.at[i,'text']=sig_stars
         
-        significant_combinations.at[i,'text']=sig_symbol
-        
+    ## DEFINE GROUPS FOR JOINT SIGNIFICANCE BARS
     # Find groups for horizontal joined forked significance bar
-    barGrpId = -1.0  # Initialize barGrpId as an integer
-
-    if significant_combinations.shape[0]==1:
-        skipList = [0]
-    else:
-        skipList = []
-    
-    # Assign NaN to the 'group' column
-    significant_combinations['group']= assign_groupID(significant_combinations)
-
-                
-    print(f"significant_combinations in add_stats_annot={significant_combinations}")
-    
-    # define heights of vertical tips
+    significant_combinations= assign_groupID(significant_combinations)
+                    
+    # Define offsets, heights of vertical tips
     voffset =  yrange * 0.05
-    h_tips_big = yrange * 0.05
-    h_tips_small = yrange * 0.025
-    
-    # Plot grouped significance bars
-    if significant_combinations.shape[0]!=1:
-        bar_groups = significant_combinations['group'].unique()
-        bar_groups = bar_groups[~np.isnan(bar_groups)]
-        level = 1
+    tip_height = yrange * 0.03
+    voffset_text = yrange * 0.11
+    voffset2 = voffset+tip_height*1.5
+    top = top+tip_height
+    level = 1
+
+    ## PLOT SIGNIFICANCE COMPARISONS BETWEEN 2 CONDITIONS
+    bars_2 = significant_combinations[significant_combinations['group_size']==1]
+    previous_x1 = np.nan
+    previous_x2 = np.nan
+    for i, row in bars_2.iterrows():
+
+        x1 = row['x1']
+        x2 = row['x2']
+        sig_stars = row['text']
         
-        for b in bar_groups:
-            if b==np.nan:
-                continue
-                
-            rows = significant_combinations[significant_combinations['group']==b]
-            if rows.shape[0]==0:
-                continue
-                
-            sig_symbol =  rows['text'].values[0]
-        
-            x1s = rows['grp1'].values
-            x2s = rows['grp2'].values
-    
-            x1 = np.unique(x1s)
-            x2 = np.unique(x2s)
-            if len(x1)==1:
-                xTopTip = np.mean(x2)
-                x1 = np.mean(x1)
-                xTxt = np.mean([x1 ,xTopTip])
-                xAlone = x1
-                xGroup = x2s
-            else:
-                xTopTip = np.mean(x1)
-                x2 = np.mean(x2)
-                xTxt = np.mean([x2 ,xTopTip])
-                xAlone = x2
-                xGroup = x1s
-                
-            MIN= np.min(xGroup)
-            MAX= np.max(xGroup)
-            
-            # Plot the top bar
-            
-            h_bar = yrange * 0.10
-            h0 = (h_bar+voffset) * level
-            y_bar = top + h0 + h_bar
-            h_tips = yrange * 0.025
-            y_tips = y_bar-h_bar 
-            ax.plot(
-                [xAlone, xAlone, xTopTip, xTopTip],
-                [y_tips, y_bar, y_bar, y_tips+h_tips], lw=1, c='k')
-            
-            h_text = (yrange * -0.01)
-            y_text = y_bar + h_text
-            ax.text(xTxt, y_text, sig_symbol, ha='center', c='k',fontsize=16)
-            
-            # Plot fork horizontal line
-            ax.plot([MIN, MAX],[y_tips, y_tips]+h_tips, lw=1, c='k')  
-            
-            # Plot little fork
-            for xg in xGroup:
-                ax.plot(
-                    [xg, xg],
-                    [y_tips, y_tips+h_tips], lw=1, c='k')
-       
-            # What level is this bar among the bars above the plot?
+        # give more space between bars if they are intersecting
+        intersecting = are_bars_intersecting(x1, x2, previous_x1, previous_x2)
+        if intersecting:
             level +=1
-
-    otherBars = significant_combinations[significant_combinations['group'].isna()]
-
-    # Significance other bars
-    for i, row in otherBars.iterrows():
-
-        x1 = row['grp1']
-        x2 = row['grp2']
         
-        # What level is this bar among the bars above the plot?
-        level = len(significant_combinations) - i
+        # Compute bar y value
+        ybar = top + (voffset * level)
+             
         
         # Plot the bar
-        bar_height = (yrange * 0.05 * level) + top
-        bar_tips = bar_height - (yrange * 0.02)
-        ax.plot(
-            [x1, x1, x2, x2],
-            [bar_tips, bar_height, bar_height, bar_tips], lw=1, c='k')
+        plot_sig_bar_2_condition(ax,x1,x2,ybar,sig_stars,tip_height,voffset_text = voffset_text)
         
-        h_text = (yrange * -0.01)
-        text_height = bar_height + h_text
-        ax.text((x1 + x2) * 0.5, text_height, sig_symbol, ha='center', c='k',fontsize=16)
+        # What level is this bar among the bars above the plot?
+        level +=1
+        
+        previous_x1 = x1
+        previous_x2 = x2
+        
+    ## PLOT GROUPED SIGNIFICANCE COMPARISONS
+    level +=2
+    i4groupedSig = significant_combinations['group_size']>1
+    bar_groups = significant_combinations[i4groupedSig]['group'].unique()
+    previous_x1 = np.nan
+    previous_x2 = np.nan    
+    top = top + voffset * level - voffset2
+    voffset = voffset2 
+    level = 1
+    for b in bar_groups:
+            
+        rows = significant_combinations[significant_combinations['group']==b]
+                        
+        
+        # give more space between bars if they are intersecting
+        x1 = np.min(rows['x1'].values)
+        x2 = np.max(rows['x2'].values)
+        intersecting = are_bars_intersecting(x1, x2, previous_x1, previous_x2)
+        if intersecting:
+            print(f"intersecting:{intersecting}")
+            print(rows)
+            level +=1
 
+            
+        # Compute top bar y value
+        ybar = top + voffset * level  
+        
+        # Plot significance of grouped bar
+        plot_sig_bar_grouped(ax,rows,ybar,tip_height,voffset_text = voffset_text)
+        
+        print(f"level:{level}")
+        # What level is this bar among the bars above the plot?
+        level +=1
+        
+        previous_x1 = x1
+        previous_x2 = x2
+
+        
     # Adjust y-axis
-    #ax.set_ylim(bottom , text_height+yrange * 0.08)
-    ax.set_ylim(auto=True)
+    yrange,bottom,newtop = get_yrange(ax)
+    newtop = newtop+3*tip_height
+    ax.set_ylim(bottom , newtop)
+
+def are_bars_intersecting(current_x1, current_x2, previous_x1, previous_x2):
+    """
+    Check if the current bar intersects with the previous bar.
     
+    :param current_x1: The starting x value of the current bar.
+    :param current_x2: The ending x value of the current bar.
+    :param previous_x1: The starting x value of the previous bar.
+    :param previous_x2: The ending x value of the previous bar.
+    :return: True if the bars intersect without just touching, False otherwise.
+    """
+    included = (previous_x1 >= current_x1 and previous_x2 <= current_x2)
+    current_smaller = (previous_x1 <= current_x1 and previous_x2 >= current_x2)
+    intersect_left = (previous_x1 > current_x1 and previous_x1 < current_x2)
+    intersect_right = (previous_x2 < current_x2 and previous_x1 < current_x2)
     
-def assign_groupID(s):
-    #s = significant_combinations
-    s['group'] = np.nan
-    s['group'] = s['group'].astype(float)
-    # Group the bars
-    s['groupID1'] = s.groupby(['text', 'grp1']).ngroup()  
-    s['groupID2'] = s.groupby(['text', 'grp2']).ngroup()  
+    # Check if either end of one bar is strictly within the range of the other bar
+    return  intersect_left or \
+            intersect_right or \
+            included or \
+            current_smaller
+               
+               
+
+
+
+def plot_sig_bar_2_condition(ax,x1,x2,ybar,sig_stars,tip_height,voffset_text=None,color=None,fontsize=12):
     
-    p_groupID1 = np.unique(s['groupID1'])
-    p_groupID2 = np.unique(s['groupID2'])
+    if color is None:
+        color = [c + 0.001 for c in [0,0,0]]# set color that is slightly different from black for easier Illustrator selection
     
-    if p_groupID1!=s['groupID1']:
-        for irow,row in s.iterrows():
-            row['groupID1']==s['groupID1']
+    if voffset_text is None:
+        voffset_text = tip_height
+        
+        
+    # Adjust vertical offset for text to be less if the text contains stars
+    if '*' in sig_stars:
+        voffset_text = voffset_text*0.8
             
+    ytips = ybar-tip_height
+    ax.plot(
+        [x1, x1, x2, x2],
+        [ytips, ybar, ybar, ytips], lw=1, c=color)
+    
+    ytext = ybar+voffset_text
+    ax.text((x1 + x2) * 0.5, ytext, sig_stars, ha='center',va='top', c=color,fontsize=fontsize)
+
+
+def plot_sig_bar_grouped(ax,rows,ybar,tip_height,color=None,voffset_text=None,fontsize=12):
+    
+    if color is None:
+        color = [c + 0.001 for c in [0,0,0]]# set color that is slightly different from black for easier Illustrator selection
+        
+    if voffset_text is None:
+        voffset_text = tip_height
+        
+        
+    sig_stars =  rows['text'].values[0]
+    
+    # Adjust vertical offset for text to be less if the text contains stars
+    if '*' in sig_stars:
+        voffset_text = voffset_text*0.8 
+        
+
+    x1s = rows['x1'].values
+    x2s = rows['x2'].values
+
+    x1 = np.unique(x1s)
+    x2 = np.unique(x2s)
+    if len(x1)==1:
+        xTopTip = np.mean(x2)
+        x1 = np.mean(x1)
+        xTxt = np.mean([x1 ,xTopTip])
+        xAlone = x1
+        xGroup = x2s
+    else:
+        xTopTip = np.mean(x1)
+        x2 = np.mean(x2)
+        xTxt = np.mean([x2 ,xTopTip])
+        xAlone = x2
+        xGroup = x1s
+        
+    # Compute x extent of bar
+    MIN= np.min(xGroup)
+    MAX= np.max(xGroup)
+    
+    # Plot top bar
+    ytips = ybar-tip_height 
+    ax.plot(
+        [xAlone, xAlone, xTopTip, xTopTip],
+        [ytips-1.5*tip_height, ybar, ybar,  ytips], lw=1, c=color)
+    
+    # Plot stars
+    ytext = ybar + voffset_text
+    ax.text(xTxt, ytext, sig_stars, ha='center',va='top', c=color,fontsize=fontsize)
+    
+    # Plot fork horizontal line
+    ax.plot([MIN, MAX],[ytips, ytips], lw=1, c=color)  
+    
+    # Plot little vertical tips
+    for xg in xGroup:
+        ax.plot(
+            [xg, xg],
+            [ytips, ytips-tip_height], lw=1, c=color)
+
+    
+
+
+def  add_xtick_values(ax,s):
+    # s = significant_combinations
+    s['x1']= np.nan
+    s['x2']= np.nan
+    
+    # Get x-axis tick labels
+    xtick_labels = [xtick_label.get_text() for xtick_label in ax.get_xticklabels()]
+    xtick = ax.get_xticks()
+    
+        
+    for idx,row in s.iterrows():
+        
+        if isinstance(s['condition1'][0],str):
+
+            c1 = row['condition1']
+            c2 = row['condition2']
             
+            s.at[idx,'x1']=[x for x, label in zip(xtick, xtick_labels) if label==c1][0]
+            s.at[idx,'x2']=[x for x, label in zip(xtick, xtick_labels) if label==c2][0]
+        
+        else:
+            
+            s.at[idx,'x1']=c1
+            s.at[idx,'x2']=c2
     
     return s
 
 
-# def add_stats_annot2(ax, significant_combinations, yrange=None):
-#     """
-#     Add statistical significance annotations to a barplot.
+def assign_groupID(s,debug=False):
+    """s is significant combinations dataframe 
     
-#     [Function description remains unchanged]
-#     """
+    # Sample significant_combinations DataFrame
+    s = pd.DataFrame({
+        'condition1': ['A', 'B', 'A', 'C'],
+        'condition2': ['B', 'C', 'D', 'D'],
+        'text': ['**','***','**','ns']
+    })
     
-#     if significant_combinations.empty or significant_combinations.shape[0] == 0:
-#         return
+    # Sample significant_combinations DataFrame with group by condition2 better
+    s = pd.DataFrame({
+        'condition1': ['A', 'B', 'A', 'C'],
+        'condition2': ['B', 'C', 'D', 'D'],
+        'text': ['ns','***','**','**']
+    })    
     
-#     if not yrange:
-#         yrange, bottom, top = get_yrange(ax)
-#     else:
-#         bottom, top = plt.get_ylim(ax)
-
-#     # Assign significance symbols
-#     significant_combinations['text'] = significant_combinations['pval'].apply(assign_sig_symbol)
-
-#     # Group the bars
-#     significant_combinations['group'] = significant_combinations.groupby(['text', 'grp1']).ngroup()
-
-#     grouped = significant_combinations.groupby('group')
-#     bar_height = top + yrange * 0.1
-#     tip_height = yrange * 0.02
-
-#     for name, group in grouped:
-#         if len(group) > 1:
-#             # Draw a horizontal line for grouped bars
-#             grp1 = group['grp1'].values
-#             grp2 = group['grp2'].values
-#             x_values = np.concatenate([grp1, grp2])
-#             x_min, x_max = np.min(x_values), np.max(x_values)
-
-#             ax.plot([x_min, x_max], [bar_height, bar_height], color='black', lw=1)
-#             draw_significance_tips(ax, x_values, bar_height, tip_height)
-
-#             # Draw text
-#             ax.text((x_min + x_max) / 2, bar_height + tip_height, group['text'].iloc[0], ha='center', fontsize=12)
-
-#         else:
-#             # Draw individual bars
-#             x1 = group['grp1'].values[0]
-#             x2 = group['grp2'].values[0]
-#             ax.plot([x1, x1, x2, x2], [bar_height - tip_height, bar_height, bar_height, bar_height - tip_height], color='black', lw=1)
-#             ax.text((x1 + x2) / 2, bar_height + tip_height, group['text'].iloc[0], ha='center', fontsize=12)
-
-#         bar_height += yrange * 0.1  # Increase height for the next group
-
-#     ax.set_ylim(bottom, bar_height + yrange * 0.2)  # Adjust y-axis limits
-#     ax.set_ylim(auto=True)
-
-# def assign_sig_symbol(pval):
-#     """Assign significance symbols based on p-value."""
-#     if pval < 0.001:
-#         return '***'
-#     elif pval < 0.01:
-#         return '**'
-#     elif pval <= 0.05:
-#         return '*'
-#     else:
-#         return 'ns'
-
-# def draw_significance_fork(ax, x_values, bar_height, tip_height):
-#     """Draw tips for significance bars."""
-#     for x in x_values:
-#         ax.plot([x, x], [bar_height, bar_height + tip_height], color='black', lw=1)
-  
-
-# def draw_significance_grouped_fork(ax, x_values, bar_height, tip_height):
-#     """Draw tips for significance bars."""
-#     for x in x_values:
-#         ax.plot([x, x], [bar_height, bar_height + tip_height], color='black', lw=1)
+    # DEBUG      
+    s = significant_combinations
+    """
+    
+    
+    # Sort by condition1 to start
+    s = s.sort_values(by=['condition1','text'], ascending=[True, True])
+    
+    if debug:
+        print(s)
+    
+    # Group the bars
+    s['group1'] = s.groupby(['text', 'condition1']).ngroup()  
+    s['group2'] = s.groupby(['text', 'condition2']).ngroup()  
+    
+    if debug:
+        print(s)  
+        
+    ## Check if it is better to group by condition 1 or 2 according to the size of the group
+    # First compute the group size for all combinations
+    # Initialize the group column with integers
+    s['group1_size'] =  np.nan
+    s['group2_size'] =  np.nan    
+    for idx,row in s.iterrows():
+        groupID = row['group1']
+        ncomp = np.sum(s['group1']==groupID)
+        s.at[idx,'group1_size']=ncomp
+        
+        groupID = row['group2']
+        ncomp = np.sum(s['group2']==groupID)
+        s.at[idx,'group2_size']=ncomp  
+        
+        
+    if debug:
+        print(s)
+        
+    # Second, decide which grouping is best
+    group2_better_than_group1 = np.any(s['group1_size']<s['group2_size'])
+    if group2_better_than_group1:
+        # Sort by group2 and text for clarity
+        s = s.sort_values(by=['group2','group2_size','text'], ascending=[True, False,True])
+        if debug:
+            print(s)        
+        s['group']=s['group2']
+        s['group_size']=s['group2_size']
+    else:
+        s = s.sort_values(by=['group1','group1_size','text'], ascending=[True, False,True])
+        s['group']=s['group1']
+        s['group_size']=s['group1_size']
+    
+    return s
 
 
-# def draw_significance_tips(ax, x_values, bar_height, tip_height):
-#     """Draw tips for significance bars."""
-#     for x in x_values:
-#         ax.plot([x, x], [bar_height, bar_height + tip_height], color='black', lw=1)
+def pval2stars(p):
 
+    if p < 0.001:
+        sig_stars = '***'
+    elif p < 0.01:
+        sig_stars = '**'
+    elif p <= 0.05:
+        sig_stars = '*'
+    else:
+        sig_stars = 'ns'   
+        
+    return sig_stars
+    
     
 def get_yrange(ax):
     """
@@ -792,3 +890,30 @@ def get_yrange(ax):
 
     return yrange,ymin,ymax
 
+DEBUG=False
+if DEBUG:
+    import random
+    
+
+    # Generating random y-values for the bar plot
+    y_values = [random.randint(5, 20) for _ in range(6)]
+    
+    # Generating random p-values for the significant_combinations DataFrame
+    p_values = [round(random.uniform(0.001, 0.1), 3) for _ in range(10)]
+    
+    # Sample significant_combinations DataFrame with random p-values
+    significant_combinations = pd.DataFrame({
+        'condition1': ['A', 'B', 'A', 'C', 'D', 'E', 'F', 'A', 'B', 'C'],
+        'condition2': ['B', 'C', 'D', 'D', 'E', 'F', 'A', 'F', 'E', 'A'],
+        'pval': p_values
+    })
+    
+    # Create a barplot with random y-values
+    fig, ax = plt.subplots()
+    ax.bar(['A', 'B', 'C', 'D', 'E', 'F'], y_values)
+    
+    # Add statistical significance annotations
+    add_stats_annot(ax, significant_combinations)
+    
+    # Show the plot
+    plt.show()

@@ -132,7 +132,7 @@ def perform_comparative_statistics(data, group_column, variable_column,xticks = 
             test_used = 'Rank Sum Test'
 
         if p_value < 0.05:
-            significant_combinations.append({'grp1': 0, 'grp2': 1, 'pval': p_value})
+            significant_combinations.append({'condition1': 0, 'condition2': 1, 'pval': p_value})
         
     else:
         if parametric:
@@ -189,26 +189,26 @@ def perform_comparative_statistics(data, group_column, variable_column,xticks = 
                 # Update column and row names with groups
                 if all(isinstance(v, np.int64) for v in posthoc_result_formatted.columns.values):
 
-                    posthoc_result_formatted.columns = [f"grp {i}" for i in posthoc_result_formatted.columns.values]
-                    posthoc_result_formatted.index = [f"grp {i}" for i in posthoc_result_formatted.index.values]
+                    posthoc_result_formatted.columns = [f"condition {i}" for i in posthoc_result_formatted.columns.values]
+                    posthoc_result_formatted.index = [f"condition {i}" for i in posthoc_result_formatted.index.values]
                 
 
                 print(posthoc_result_formatted)
             
             # Store significant combinations
             for c in combinations:
-                group1 = c[0]
-                group2 = c[1]
+                condition1 = c[0]
+                condition2 = c[1]
                 # Significance
 
-                p = posthoc_result.iloc[group1, group2]
+                p = posthoc_result.iloc[condition1, condition2]
 
                 # Apply Bonferroni correction to the p-value
                 p = p * n_combinations
                 
                 if p <= 0.05:
                     # Append the significant combination to the list as a dictionary
-                    significant_combinations.append({'grp1': group1, 'grp2': group2, 'pval': p})
+                    significant_combinations.append({'condition1': condition1, 'condition2': condition2, 'pval': p})
 
     # Convert the list of dictionaries into a DataFrame
     significant_combinations_df = pd.DataFrame(significant_combinations)
@@ -393,8 +393,8 @@ def compute_and_display_stats_xGroups(ax=None, # destination axis defined as
                 xshift=0.1
                 
             for irow,row in significant_combinations.iterrows():
-                significant_combinations.loc[irow,'grp1']= row['grp1']+ xshift
-                significant_combinations.loc[irow,'grp2']= row['grp2']+ xshift
+                significant_combinations.loc[irow,'condition1']= row['condition1']+ xshift
+                significant_combinations.loc[irow,'condition2']= row['condition2']+ xshift
                 
             #print(f"significant_combinations = {significant_combinations}")
             myfigs.add_stats_annot(ax,significant_combinations,yrange=yrange2)
