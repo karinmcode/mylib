@@ -599,8 +599,6 @@ def add_stats_annot(ax,significant_combinations,yrange=None):
         x2 = np.max(rows['x2'].values)
         intersecting = are_bars_intersecting(x1, x2, previous_x1, previous_x2)
         if intersecting:
-            print(f"intersecting:{intersecting}")
-            print(rows)
             level +=1
 
             
@@ -610,7 +608,6 @@ def add_stats_annot(ax,significant_combinations,yrange=None):
         # Plot significance of grouped bar
         plot_sig_bar_grouped(ax,rows,ybar,tip_height,voffset_text = voffset_text)
         
-        print(f"level:{level}")
         # What level is this bar among the bars above the plot?
         level +=1
         
@@ -741,12 +738,10 @@ def  add_xtick_values(ax,s):
     
         
     for idx,row in s.iterrows():
-        
+        c1 = row['condition1']
+        c2 = row['condition2']
         if isinstance(s['condition1'][0],str):
-
-            c1 = row['condition1']
-            c2 = row['condition2']
-            
+          
             s.at[idx,'x1']=[x for x, label in zip(xtick, xtick_labels) if label==c1][0]
             s.at[idx,'x2']=[x for x, label in zip(xtick, xtick_labels) if label==c2][0]
         
@@ -908,9 +903,17 @@ if DEBUG:
         'pval': p_values
     })
     
+    # Sample significant_combinations DataFrame with random p-values
+    significant_combinations = pd.DataFrame({
+        'condition1': [1, 2, 1, 3, 4, 5, 6, 1, 2, 3],
+        'condition2': [2,3,4,4,5,6,1,6,5,1],
+        'pval': p_values
+    })    
+    
     # Create a barplot with random y-values
+    xvalues= list(significant_combinations['condition1'].unique())
     fig, ax = plt.subplots()
-    ax.bar(['A', 'B', 'C', 'D', 'E', 'F'], y_values)
+    ax.bar(xvalues, y_values)
     
     # Add statistical significance annotations
     add_stats_annot(ax, significant_combinations)
