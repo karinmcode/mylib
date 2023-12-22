@@ -840,8 +840,6 @@ def pval2stars(p):
 def get_yrange(ax):
     """
     Calculate the range of y-axis values in a matplotlib Axes.
-    
-    [Function description remains unchanged]
     """    
     # Initialize min and max values
     ymin = float('inf')
@@ -849,41 +847,67 @@ def get_yrange(ax):
 
     # Iterate through all artists on the plot
     for artist in ax.get_children():
-        #print(type(artist))
         
         if isinstance(artist, plt.Line2D):
-            # Handle Line2D objects (lines or error bars)
-            xdata, ydata = artist.get_data()
-            if len(ydata) > 0:
+            
+            # Check if the artist is a whisker or cap in a boxplot
+            if 'whisker' in artist.get_label() or 'cap' in artist.get_label():
+                ydata = artist.get_ydata()
                 ymin = min(ymin, np.min(ydata))
                 ymax = max(ymax, np.max(ydata))
-                
-        elif isinstance(artist, mpatches.Rectangle):
-            # Handle Rectangle objects (bars in barplots)
-            thisy_min = artist.get_y() # Assuming the bar height represents the y-value
-            thisy_max = artist._height
-            #print(ydata)
-            if isinstance(thisy_min, np.ndarray):
-                ymin = min(ymin, np.min(thisy_min))
-                ymax = max(ymax, np.max(thisy_max))
+
             else:
-                ymin = min(ymin, thisy_min)
-                ymax = max(ymax, thisy_max)
+                # Handle regular Line2D objects
+                xdata, ydata = artist.get_data()
+                if len(ydata) > 0:
+                    ymin = min(ymin, np.min(ydata))
+                    ymax = max(ymax, np.max(ydata))
+
+                
+        # elif isinstance(artist, mpatches.Rectangle):
+        #     # Handle Rectangle objects (bars in barplots)
+        #     thisy_min = artist.get_y() # Assuming the bar height represents the y-value
+        #     thisy_max = artist._height
+        #     print(f"thisy_min={thisy_min}")
+        #     print(f"artist={artist}")
+        #     print(f"artist.color={artist.get_facecolor()}")
+        #     color = artist.get_facecolor()
+        #     if artist.get_alpha() is None:
+        #         continue           
+        #     if artist.get_facecolor() is None:
+        #         continue                  
+        #     print(f"thisy_min={artist.get}")
+        #     if isinstance(thisy_min, np.ndarray):
+        #         ymin = min(ymin, np.min(thisy_min))
+        #         ymax = max(ymax, np.max(thisy_max))
+        #     else:
+        #         ymin = min(ymin, thisy_min)
+        #         ymax = max(ymax, thisy_max)
                 
         elif isinstance(artist, plt.Text):
             # Handle Text objects (annotations)
             position = artist.get_position()  # Get the position in data coordinates
+            #print(f"position={position}")
+            alpha = artist.get_alpha()
+            if alpha is None:
+                continue
             y_position = position[1]  # Get the y-coordinate of the position
             ymin = min(ymin, y_position)
             ymax = max(ymax, y_position)
-        yrange = ymax - ymin
-        #print(yrange)
+        print(f"ymin({type(artist)})={ymin}")
 
 
     yrange = ymax - ymin
     yrange = np.float64(yrange)
 
     return yrange,ymin,ymax
+
+# Function to check if an artist is part of a boxplot
+def is_boxplot_artist(artist, boxplot_elements):
+    for line_collections in ['whiskers', 'caps', 'boxes', 'medians', 'fliers']:
+        if artist in boxplot_elements[line_collections]:
+            return True
+    return False
 
 DEBUG=False
 if DEBUG:
